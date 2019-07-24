@@ -9,26 +9,44 @@
 import UIKit
 
 class SSHeadlinesViewController: UIViewController {
-
+    
     @IBOutlet weak var headlineCollectionView: UICollectionView!
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         // Do any additional setup after loading the view.
         headlineCollectionView.register(UINib(nibName: "SSHeadlinesCell", bundle: nil), forCellWithReuseIdentifier: "HeadlinesCellIdentifier")
+        let urlStr = "https://newsapi.org/v2/everything?q=bitcoin&from=2019-06-24&sortBy=publishedAt&apiKey=4ac114b3a21b4795a9100efc1106cc9e"
+        guard let url = URL(string: urlStr) else { return }
+        let session = URLSession.shared
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        let task = session.dataTask(with: request) { data, response, error in
+            
+            if error != nil || data == nil {
+                print("Client error!")
+                return
+            }
+            
+            guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode) else {
+                print("Server error!")
+                return
+            }
+            
+            guard let mime = response.mimeType, mime == "application/json" else {
+                print("Wrong MIME type!")
+                return
+            }
+            
+            do {
+                let json = try JSONSerialization.jsonObject(with: data!, options: [])
+                print(json)
+            } catch {
+                print("JSON error: \(error.localizedDescription)")
+            }
+        }
+        task.resume()
     }
-    
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
 
 extension SSHeadlinesViewController: UICollectionViewDataSource, UICollectionViewDelegate {
