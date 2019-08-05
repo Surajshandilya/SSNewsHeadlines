@@ -11,13 +11,24 @@ import UIKit
 class SSHeadlinesViewController: UIViewController {
     
     @IBOutlet weak var headlineCollectionView: UICollectionView!
+    var models: [NewsDetails]?
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Do any additional setup after loading the view.
+        initialSetUp()
+//        let urlStr: String = "https://helpdeskgeek.com/wp-content/pictures/2019/08/cropped-vpn-4046047_640.jpg"
+        getNews()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        self.navigationController?.navigationBar.isHidden = false
+    }
+    private func initialSetUp() {
         headlineCollectionView.register(UINib(nibName: "SSHeadlinesCell", bundle: nil), forCellWithReuseIdentifier: "HeadlinesCellIdentifier")
-        let urlStr = "https://newsapi.org/v2/everything?q=bitcoin&from=2019-06-24&sortBy=publishedAt&apiKey=4ac114b3a21b4795a9100efc1106cc9e"
-        guard let url = URL(string: urlStr) else { return }
+    }
+    
+    fileprivate func getNews() {
+        guard let url = URL(string: Constants.urlStr) else { return }
         let session = URLSession.shared
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -28,8 +39,9 @@ class SSHeadlinesViewController: UIViewController {
                 return
             }
             
-            guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode) else {
-                print("Server error!")
+            guard let response = response as? HTTPURLResponse,
+                (200...299).contains(response.statusCode) else {
+                print("Server error! check URL")
                 return
             }
             
@@ -41,6 +53,20 @@ class SSHeadlinesViewController: UIViewController {
             do {
                 let json = try JSONSerialization.jsonObject(with: data!, options: [])
                 print(json)
+                guard let jsonArray = json as? [String: Any] else {
+                    return
+                }
+                print(jsonArray)
+                //here dataResponse received from a network request
+                let decoder = JSONDecoder()
+//                let model = try decoder.decode(<#T##type: Decodable.Protocol##Decodable.Protocol#>, from: <#T##Data#>)
+                let model = try decoder.decode(Articles.self, from:
+                    data!) //Decode JSON Response Data
+                self.models = model.articles
+                print(model)
+                DispatchQueue.main.async {
+                    self.headlineCollectionView.reloadData()
+                }
             } catch {
                 print("JSON error: \(error.localizedDescription)")
             }
@@ -51,23 +77,29 @@ class SSHeadlinesViewController: UIViewController {
 
 extension SSHeadlinesViewController: UICollectionViewDataSource, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 4
+        return models?.count ?? 0
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "HeadlinesCellIdentifier", for: indexPath) as? SSHeadlinesCell else {
             return UICollectionViewCell()
         }
-        cell.backgroundColor = UIColor.white
+            cell.backgroundColor = UIColor.white
         cell.accessibilityLabel = "Newly"
+        cell.setupNewsCell(model: models?[indexPath.item])
         return cell
     }
     
-    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let storyBoard = UIStoryboard(name: "Main", bundle: nil)
+        guard let newsVC = storyBoard.instantiateViewController(withIdentifier: "SSNewsDetailViewControllerId") as? SSNewsDetailViewController else { return }
+        newsVC.models = models?[indexPath.item]
+        self.navigationController?.pushViewController(newsVC, animated: true)
+    }
 }
 
 extension SSHeadlinesViewController: UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: collectionView.frame.size.width, height: 100.0)
+        return CGSize(width: collectionView.frame.size.width, height: 180.0)
     }
 }
